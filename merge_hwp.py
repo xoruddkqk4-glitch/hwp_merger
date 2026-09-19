@@ -5,18 +5,30 @@ from tkinter import filedialog
 from pyhwpx import Hwp
 
 
-def select_files():
+def select_files() -> list:
+    """HWP 또는 HWPX 파일 다중 선택 대화상자 (최상위 창 활성화)"""
     root = tk.Tk()
-    root.withdraw()  # Tk 창 숨기기
-    file_paths = filedialog.askopenfilenames(
-        title="HWP 또는 HWPX 파일 선택",
-        filetypes=[
-            ("한글 문서", "*.hwp;*.hwpx"),
-            ("HWP 파일", "*.hwp"),
-            ("HWPX 파일", "*.hwpx")
-        ]
-    )
-    return list(file_paths)
+    root.withdraw()
+    root.attributes("-topmost", True)
+    root.lift()
+    root.focus_force()
+
+    try:
+        file_paths = filedialog.askopenfilenames(
+            parent=root,
+            title="HWP 또는 HWPX 파일 선택",
+            filetypes=[
+                ("한글 문서", "*.hwp;*.hwpx"),
+                ("HWPX 파일", "*.hwpx"),
+                ("HWP 파일", "*.hwp")
+            ]
+        )
+        return list(file_paths)
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
 
 def get_file_format(file_path: str) -> str:
@@ -28,7 +40,6 @@ def sanitize_text(text: str) -> str:
     """UTF-8 인코딩 불가능한 surrogate 문자 및 null 문자 정제"""
     if not text:
         return ""
-    # 유라시아/특수기호/수식 등에서 발생하는 lone surrogate(\udb80 등) 제거
     cleaned = text.encode("utf-8", errors="ignore").decode("utf-8")
     return cleaned.replace("\x00", "").strip()
 
@@ -43,28 +54,50 @@ def main():
     total_files = len(file_list)
     print(f"\n[선택된 파일: 총 {total_files}개]")
     for idx, path in enumerate(file_list, 1):
-        print(f"  {idx:02d}. {os.path.basename(path)}")
+        print(f"  {idx:03d}. {os.path.basename(path)}")
 
     # 2. 저장 위치 및 파일명 지정 (HWP/HWPX)
     initial_ext = ".hwpx" if any(f.lower().endswith(".hwpx") for f in file_list) else ".hwp"
-    save_path = filedialog.asksaveasfilename(
-        defaultextension=initial_ext,
-        filetypes=[("HWPX 파일", "*.hwpx"), ("HWP 파일", "*.hwp")],
-        initialfile=f"병합된_문서{initial_ext}",
-        title="병합된 파일 저장 위치 지정"
-    )
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    root.lift()
+    root.focus_force()
+
+    try:
+        save_path = filedialog.asksaveasfilename(
+            parent=root,
+            defaultextension=initial_ext,
+            filetypes=[("HWPX 파일", "*.hwpx"), ("HWP 파일", "*.hwp")],
+            initialfile=f"병합된_문서{initial_ext}",
+            title="병합된 파일 저장 위치 지정"
+        )
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
     if not save_path:
         print("\n저장을 취소했습니다. 프로그램을 종료합니다.")
         return
 
     save_path = os.path.abspath(save_path)
+
+    # 중복 확장자 방지 (.hwpx.hwpx -> .hwpx)
+    if save_path.lower().endswith(".hwpx.hwpx"):
+        save_path = save_path[:-5]
+    elif save_path.lower().endswith(".hwp.hwp"):
+        save_path = save_path[:-4]
+
     txt_save_path = os.path.splitext(save_path)[0] + ".txt"
 
-    # 3. 한글(pyhwpx) 인스턴스 초기화
-    print("\n한글 인스턴스를 실행하는 중입니다...")
-    hwpx = Hwp()
+    # 3. 한글(pyhwpx) 인스턴스 초기화 (화면 렌더링 끄기 - 초고속 백그라운드 모드)
+    print("\n한글 인스턴스를 백그라운드(화면 렌더링 끄기 / 초고속 모드)로 실행하는 중입니다...")
+    hwpx = Hwp(new=True, visible=False)
     hwp = hwpx.hwp
+    hwp.SetMessageBoxMode(0x00020000)  # 무인 자동화 모드: 불필요한 알림/팝업창 억제
 
     try:
         # 4. [단계 1/2] 개별 문서 텍스트 추출 및 TXT 병합 (파일명 경계 구분)
@@ -83,7 +116,7 @@ def main():
 
             for idx, file_path in enumerate(file_list, 1):
                 filename = os.path.basename(file_path)
-                print(f"  ({idx}/{total_files}) 텍스트 추출 중: {filename}")
+                print(f"  ({idx:03d}/{total_files:03d}) 텍스트 추출 중: {filename}")
 
                 fmt = get_file_format(file_path)
                 hwp.Open(file_path, fmt, "forceopen:true")
@@ -94,7 +127,7 @@ def main():
 
                 section_header = (
                     f"{'=' * 80}\n"
-                    f"[{idx:02d}/{total_files:02d}] {filename}\n"
+                    f"[{idx:03d}/{total_files:03d}] {filename}\n"
                     f"- 원본 경로: {file_path}\n"
                     f"{'=' * 80}\n\n"
                 )
@@ -108,17 +141,17 @@ def main():
         print(f"  -> [완료] TXT 병합 파일 저장 완료: {txt_save_path}")
 
         # 5. [단계 2/2] 원본 서식 보존 HWP/HWPX 문서 병합
-        print("\n[단계 2/2] 원본 서식 보존 HWP/HWPX 문서 병합 진행 중...")
+        print("\n[단계 2/2] 원본 서식 보존 HWP/HWPX 문서 병합 진행 중 (화면 렌더링 생략으로 고속 처리)...")
         for idx, file_path in enumerate(file_list, 1):
             filename = os.path.basename(file_path)
             fmt = get_file_format(file_path)
 
             if idx == 1:
-                print(f"  ({idx}/{total_files}) 기준 문서 오픈: {filename}")
+                print(f"  ({idx:03d}/{total_files:03d}) 기준 문서 오픈: {filename}")
                 hwp.Open(file_path, fmt, "forceopen:true")
                 hwp.MovePos(3, 0, 0)  # 문서 맨 끝으로 이동
             else:
-                print(f"  ({idx}/{total_files}) 문서 끼워넣기: {filename}")
+                print(f"  ({idx:03d}/{total_files:03d}) 문서 끼워넣기: {filename}")
                 hwp.HAction.GetDefault("InsertFile", hwp.HParameterSet.HInsertFile.HSet)
                 option = hwp.HParameterSet.HInsertFile
                 option.filename = file_path

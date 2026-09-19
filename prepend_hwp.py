@@ -103,13 +103,19 @@ def main():
         return
 
     save_path = os.path.abspath(save_path)
+    if save_path.lower().endswith(".hwpx.hwpx"):
+        save_path = save_path[:-5]
+    elif save_path.lower().endswith(".hwp.hwp"):
+        save_path = save_path[:-4]
+
     txt_save_path = os.path.splitext(save_path)[0] + ".txt"
     base_txt_path = os.path.splitext(base_file)[0] + ".txt"
 
-    # 4. 한글 인스턴스 초기화
-    print("\n한글 인스턴스를 실행하는 중입니다...")
-    hwpx = Hwp()
+    # 4. 한글 인스턴스 초기화 (화면 렌더링 끄기 - 초고속 백그라운드 모드)
+    print("\n한글 인스턴스를 백그라운드(화면 렌더링 끄기 / 초고속 모드)로 실행하는 중입니다...")
+    hwpx = Hwp(new=True, visible=False)
     hwp = hwpx.hwp
+    hwp.SetMessageBoxMode(0x00020000)  # 무인 자동화 모드: 불필요한 알림/팝업창 억제
 
     try:
         # -------------------------------------------------------------
