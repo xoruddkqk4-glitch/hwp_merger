@@ -30,31 +30,38 @@
   - **새로운 TXT 파일**: 해당 기간 본문만 추출하여 0.01초 만에 생성.
   - **새로운 HWP/HWPX 파일**: 통합 문서에 기록된 원본 파일 경로를 역추적하여 서식 손상 없이 초고속 백그라운드 병합(10~20초).
 
+### 5. 한글 통합 관리자 올인원 GUI 및 단일 실행 파일 (`main_gui.py` / `HWP_Toolkit.exe`) ⭐
+- **4대 핵심 기능 완벽 통합**: 4개의 탭(문서 일괄 병합, 최신순 증분, 기간별 추출, 파일명 변경)으로 직관적 조작.
+- **클릭 실행 단일 EXE 제공**: 파이썬이나 터미널이 필요 없는 독립형 실행 파일(`dist/HWP_Toolkit.exe`).
+- **UI 프리징 방지**: 백그라운드 워커 스레드와 COM 스레드 안전성 보장으로 대용량 병합 중에도 GUI가 멈추지 않음.
+- **실시간 프로그레스 & 상태 로그**: 작업 진행률(%) 및 상세 로그 실시간 출력, 작업 취소 버튼 지원.
+- **시각적 탭 피드백**: 선택된 탭을 일정한 크기로 유지하면서 선명한 블루 배경으로 명확히 구분.
+
 ## 사용 기술 및 요구 사항
-- Python 3.8+
-- [pyhwpx](https://pypi.org/project/pyhwpx/) (`pip install pyhwpx`)
+- Python 3.8+ (소스 직접 실행 시)
+- [pyhwpx](https://pypi.org/project/pyhwpx/) (`pip install pyhwpx`), [pywin32](https://pypi.org/project/pywin32/)
 - 한글 프로그램(한컴오피스 한글) 설치 환경 (Windows)
+- *※ 빌드된 `HWP_Toolkit.exe`는 Python 설치 없이도 한글 프로그램만 있으면 단독 실행 가능*
 
 ## 실행 방법
 
-### 전체 문서를 처음부터 일괄 병합할 때
-```bash
-python merge_hwp.py
-```
+### 1. 윈도우 GUI 실행 (추천 ⭐)
+- **더블 클릭 실행 (단일 EXE)**:
+  `dist/HWP_Toolkit.exe` 파일을 더블 클릭하여 바로 실행 (터미널 창 없음)
+- **파이썬 소스로 GUI 실행**:
+  ```bash
+  python main_gui.py
+  ```
 
-### 기존 대용량 병합본 맨 앞에 신규 파일만 최신순으로 덧붙일 때
-```bash
-python prepend_hwp.py
-```
+### 2. EXE 원클릭 재빌드 (PyInstaller)
+- 소스 코드 수정 후 `build_exe.bat` 파일을 더블 클릭하면 `dist/HWP_Toolkit.exe`가 자동 생성됩니다.
 
-### 파일명을 일괄 변경하거나 '의 사본' 등을 정리할 때
+### 3. 개별 터미널(CLI) 스크립트 실행
 ```bash
-python batch_rename.py
-```
-
-### 통합 문서에서 특정 기간의 문서만 추출하여 별도 병합본을 만들 때
-```bash
-python extract_by_period.py
+python merge_hwp.py        # 일괄 병합
+python prepend_hwp.py      # 최신순 증분 병합
+python batch_rename.py     # 파일명 일괄 변경
+python extract_by_period.py # 기간별 역추적 추출
 ```
 
 ---
@@ -98,3 +105,17 @@ python extract_by_period.py
 - **검증 결과**:
   - `python -m py_compile extract_by_period.py` 구문 검증 완료 (통과)
   - 기간 문자열 정규식 파싱 및 TXT 헤더 역추적 단위 테스트 완료
+
+### [2026-09-20 11:48] 업데이트 이력 (Commit ID: a8f2c8f)
+- **수정 내용**:
+  - `main_gui.py` 신규 구현: 기존 4개 스크립트(일괄 병합, 최신순 증분, 기간별 역추적 추출, 파일명 일괄 변경)를 단일 윈도우 창 안에 4개 탭(Notebook)으로 통합한 올인원 데스크톱 GUI 프로그램 개발
+  - `hwp_core.py` 신규 구현: 4대 기능의 한글 COM 자동화, 텍스트 정제, 날짜 표준화, 멀티스레드 안전성(`pythoncom.CoInitialize()`) 통합 비즈니스 로직 모듈화
+  - `main_gui.py`: 대용량 작업 중 GUI 프리징(응답 없음) 방지를 위한 백그라운드 워커 스레드, 실시간 프로그레스 바(%), 상세 상태 로그창, 작업 취소 기능 적용
+  - `main_gui.py` UI/UX 개선: 탭 전환 시 크기가 작아지지 않도록 탭 크기(padding)를 고정하고, 선택된 활성 탭만 로열 블루 배경색(`RGB: #2563EB`)과 화이트 폰트로 또렷하게 강조하는 모던 스타일링 적용
+  - `build_exe.bat` & `build_onedir.bat` 제공: PyInstaller 기반 콘솔 창 숨김 모드(`--windowed`) 단일 실행 파일(`dist/HWP_Toolkit.exe`) 원클릭 빌더 구축
+  - `GEMINI.md` 동기화 및 `.gitignore`에 PyInstaller 임시 파일(`dist/`, `build/`, `*.spec`) 무시 규칙 추가
+- **검증 결과**:
+  - `python -m py_compile hwp_core.py main_gui.py` 구문 검증 완료 (통과)
+  - `hwp_core.py` 핵심 기능(복사본 접미사 제거, 모의고사 날짜 정규화, 기간 범위 파싱) 단위 테스트 완료 (통과)
+  - PyInstaller 빌드 실행 및 `dist/HWP_Toolkit.exe` 단일 실행 파일(~79MB) 정상 생성 확인
+

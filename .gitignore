@@ -13,3 +13,4 @@ ENV/
 build/
 dist/
 *.egg-info/
+*.spec
